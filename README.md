@@ -1,50 +1,72 @@
 # TrustVault — Secure Document Sharing
 
-A Flask application demonstrating authenticated users, server-enforced document permissions, private file storage and an audit trail.
+TrustVault is a Flask application for uploading documents privately and sharing them with explicit Viewer or Editor permissions. Authorization is checked by the server on each protected document action; hiding a button in the browser is not treated as a security control.
 
-## Features
-- Owner registration; admin accounts are created through a protected CLI command.
-- Password hashing and server-side login sessions.
-- Private uploads stored outside the public `static` directory.
-- Read and edit permissions; owners/admins can share and revoke access.
-- Server-side authorization on download, rename, delete and permission changes.
-- Audit records for logins, uploads, downloads, permission changes and denied actions.
-- CSRF protection on forms; 10 MB upload limit and extension allowlist.
+## Implemented features
 
-## Run locally
-```bash
+- User registration and login with Werkzeug password hashing.
+- Public registration creates Owner accounts only; Admin accounts are provisioned through a Flask CLI command.
+- Private file storage outside the public `static` directory, with random server-side storage names.
+- Document upload, download, rename and deletion.
+- Owner-controlled sharing and permission revocation.
+- Viewer access: read/download only. Editor access: read/download and rename. Delete and permission management remain Owner/Admin operations.
+- Admin access to documents and the audit page.
+- Audit events for registration, login success/failure, logout, uploads, downloads, renames, deletes, permission changes and denied access.
+- CSRF protection on state-changing forms, extension allowlisting and a 10 MB request/file limit.
+
+## Run locally (Windows PowerShell)
+
+```powershell
+git clone https://github.com/CHINNAMMANIMITHA/TrustValue_project.git
+cd TrustValue_project
 python -m venv venv
-# Windows: venv\Scripts\activate
-# macOS/Linux: source venv/bin/activate
+.\venv\Scripts\Activate.ps1
+python -m pip install --upgrade pip
 pip install -r requirements.txt
 python app.py
 ```
-Open http://127.0.0.1:5000.
 
-## Create an admin
-Set environment variables (do not commit credentials):
+Open `http://127.0.0.1:5000`.
+
+For Windows Command Prompt, activate with `venv\\Scripts\\activate` instead. On macOS/Linux use `source venv/bin/activate`.
+
+## Create an Admin account
+
+Set these environment variables without committing their values:
+
 - `ADMIN_USERNAME`
 - `ADMIN_EMAIL`
-- `ADMIN_PASSWORD` (12+ characters)
+- `ADMIN_PASSWORD` (at least 12 characters)
+
 Then run:
+
 ```bash
 flask --app app create-admin
 ```
-The admin account is not available through public registration.
 
-## Tests
+There is intentionally no public Admin registration option.
+
+## Run tests
+
 ```bash
 pytest -q
 ```
 
-## Production deployment
-Set a strong random `SECRET_KEY`, a persistent `DATABASE_URL` (PostgreSQL recommended), `COOKIE_SECURE=true`, and a persistent private upload volume mounted to the configured `UPLOAD_FOLDER` (or adapt the path for your host). Run with:
-```bash
-gunicorn app:app
-```
-Do not use the development secret, SQLite on ephemeral storage, or local ephemeral uploads for production. Configure HTTPS. Back up the database and private upload volume.
+The security tests cover Viewer/Editor boundaries, Owner/Admin access, unauthorized document access, attempted role escalation during registration, upload extension validation and audit events. Run them locally after making changes. A passing test suite is useful evidence, not proof that the application is vulnerability-free.
 
-## Security notes / limitations
-- The allowlist checks extensions, not malware. Production deployments should add antivirus scanning and content-type/signature validation.
-- Audit logs are application-level records; production should export them to append-only storage and restrict database access.
-- This starter is a compact assessment implementation, not a certified secure document-management product.
+## Render / production configuration
+
+Configure a strong random `SECRET_KEY`, `DATABASE_URL` (prefer managed PostgreSQL), `COOKIE_SECURE=true`, and `ADMIN_USERNAME`, `ADMIN_EMAIL`, `ADMIN_PASSWORD` as appropriate. Use HTTPS. The database and private upload directory must be on persistent storage; free/ephemeral instances may lose local files or SQLite data when restarted or redeployed. Set `UPLOAD_FOLDER` to a persistent mounted path when your hosting plan supports one. Run with `gunicorn app:app`.
+
+Do not use the development fallback secret in production. Do not commit credentials or uploaded documents. Back up the database and file volume.
+
+## Known limitations / future work
+
+- Extension allowlisting does not inspect file contents or detect malware. Add file signature validation and antivirus scanning before production use.
+- Audit logs are stored in the application database. A privileged database operator could alter them; stronger deployments should export logs to append-only external storage.
+- Add rate limiting, password reset with verified email, MFA, automated dependency scanning and broader security testing before production use.
+- This project is an assessment prototype, not a certified secure document-management service.
+
+## Repository documentation
+
+See `THREATS.md` for the threat model and `PROMPTS.md` for the AI-use log. Complete the prompt log using your actual work dates, findings, corrections and real commit links; do not invent entries or commit links.

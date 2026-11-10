@@ -18,15 +18,22 @@ MAX_FILE_SIZE = 10 * 1024 * 1024
 
 def create_app(test_config=None):
     app = Flask(__name__)
+    database_url = os.environ.get("DATABASE_URL", "sqlite:///trustvault.db")
+    # Some hosting dashboards still provide the legacy postgres:// scheme.
+    if database_url.startswith("postgres://"):
+        database_url = database_url.replace("postgres://", "postgresql://", 1)
+
     app.config.update(
         SECRET_KEY=os.environ.get("SECRET_KEY", "dev-only-change-this-secret-before-deploy"),
-        SQLALCHEMY_DATABASE_URI=os.environ.get("DATABASE_URL", "sqlite:///trustvault.db"),
+        SQLALCHEMY_DATABASE_URI=database_url,
         SQLALCHEMY_TRACK_MODIFICATIONS=False,
         MAX_CONTENT_LENGTH=MAX_FILE_SIZE,
         SESSION_COOKIE_HTTPONLY=True,
         SESSION_COOKIE_SAMESITE="Lax",
         SESSION_COOKIE_SECURE=os.environ.get("COOKIE_SECURE", "false").lower() == "true",
-        UPLOAD_FOLDER=os.path.join(app.instance_path, "private_uploads"),
+        UPLOAD_FOLDER=os.environ.get(
+            "UPLOAD_FOLDER", os.path.join(app.instance_path, "private_uploads")
+        ),
     )
     if test_config:
         app.config.update(test_config)
@@ -54,7 +61,9 @@ def create_app(test_config=None):
             target_type=target_type,
             target_id=target_id,
             details=(details or "")[:1000],
-            ip_address=(request.headers.get("X-Forwarded-For", request.remote_addr) or "")[:45],
+            # Do not trust a client-supplied X-Forwarded-For header by default.
+            # Configure trusted-proxy handling explicitly if deployed behind a proxy.
+            ip_address=(request.remote_addr or "")[:45],
         )
         db.session.add(entry)
         db.session.commit()
